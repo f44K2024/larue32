@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic Dodge - Jeu d'évitement</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+        }
+
+        canvas {
+            border: 3px solid #e94560;
+            border-radius: 8px;
+            display: block;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.75);
+            border-radius: 8px;
+            z-index: 10;
+        }
+
+        #overlay.hidden {
+            display: none;
+        }
+
+        #overlay h1 {
+            color: #e94560;
+            font-size: 42px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+        }
+
+        #overlay h2 {
+            color: #eee;
+            font-size: 22px;
+            margin-bottom: 8px;
+        }
+
+        #overlay p {
+            color: #aaa;
+            font-size: 16px;
+            margin-bottom: 20px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        #overlay .score-display {
+            color: #f5c518;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        #startBtn {
+            padding: 14px 40px;
+            font-size: 20px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #startBtn:hover {
+            background: #ff6b81;
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(233, 69, 96, 0.6);
+        }
+
+        #hud {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            display: flex;
+            justify-content: space-between;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        #controls-info {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+            z-index: 5;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="400" height="650"></canvas>
+        <div id="hud" class="hidden">
+            <span id="scoreHud">Score: 0</span>
+            <span id="speedHud">Vitesse: 1x</span>
+        </div>
+        <div id="overlay">
+            <h1>Traffic Dodge</h1>
+            <p>Esquivez les voitures sur la route !<br>Utilisez les fleches ou A/D pour bouger.<br>Appuyez sur Espace pour acc&eacute;l&eacute;rer.</p>
+            <button id="startBtn">Jouer</button>
+        </div>
+        <div id="controls-info" class="hidden">Fleches / A-D : bouger | Espace : turbo</div>
+    </div>
+
+    <script>
+    (() => {
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('startBtn');
+        const scoreHud = document.getElementById('scoreHud');
+        const speedHud = document.getElementById('speedHud');
+        const hud = document.getElementById('hud');
+        const controlsInfo = document.getElementById('controls-info');
+
+        const W = canvas.width;
+        const H = canvas.height;
+
+        // Road config
+        const ROAD_LEFT = 60;
+        const ROAD_RIGHT = W - 60;
+        const ROAD_WIDTH = ROAD_RIGHT - ROAD_LEFT;
+        const LANE_COUNT = 4;
+        const LANE_WIDTH = ROAD_WIDTH / LANE_COUNT;
+
+        // Player config
+        const PLAYER_W = 36;
+        const PLAYER_H = 60;
+
+        // Colors for enemy cars
+        const CAR_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#ffffff'];
+
+        // Game state
+        let state = 'menu'; // menu | playing | gameover
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('trafficDodgeHigh') || '0');
+        let baseSpeed = 3;
+        let speedMultiplier = 1;
+        let turbo = false;
+        let frameCount = 0;
+        let spawnInterval = 60;
+
+        // Player
+        let player = { x: 0, y: 0, lane: 1.5 };
+
+        // Enemies
+        let enemies = [];
+
+        // Road lines
+        let roadLineOffset = 0;
+
+        // Input
+        const keys = {};
+
+        // Touch support
+        let touchStartX = null;
+
+        // ---- Drawing helpers ----
+
+        function drawRoad() {
+            // Grass
+            ctx.fillStyle = '#2d5a27';
+            ctx.fillRect(0, 0, ROAD_LEFT, H);
+            ctx.fillRect(ROAD_RIGHT, 0, W - ROAD_RIGHT, H);
+
+            // Road surface
+            ctx.fillStyle = '#3a3a3a';
+            ctx.fillRect(ROAD_LEFT, 0, ROAD_WIDTH, H);
+
+            // Road edges
+            ctx.fillStyle = '#f1c40f';
+            ctx.fillRect(ROAD_LEFT, 0, 4, H);
+            ctx.fillRect(ROAD_RIGHT - 4, 0, 4, H);
+
+            // Lane dashes
+            const speed = baseSpeed * speedMultiplier;
+            roadLineOffset = (roadLineOffset + speed) % 40;
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([20, 20]);
+            for (let i = 1; i < LANE_COUNT; i++) {
+                const x = ROAD_LEFT + i * LANE_WIDTH;
+                ctx.beginPath();
+                ctx.moveTo(x, -20 + roadLineOffset);
+                ctx.lineTo(x, H);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+        }
+
+        function drawCar(x, y, w, h, color, isPlayer) {
+            // Car body
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, 6);
+            ctx.fill();
+
+            // Windshield
+            const windshieldY = isPlayer ? y + 8 : y + h - 22;
+            ctx.fillStyle = '#87ceeb';
+            ctx.globalAlpha = 0.7;
+            ctx.beginPath();
+            ctx.roundRect(x + 5, windshieldY, w - 10, 14, 3);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+
+            // Headlights / taillights
+            if (isPlayer) {
+                // Headlights (top)
+                ctx.fillStyle = '#ffffaa';
+                ctx.fillRect(x + 3, y + 1, 7, 4);
+                ctx.fillRect(x + w - 10, y + 1, 7, 4);
+            } else {
+                // Taillights (bottom for enemies coming toward player)
+                ctx.fillStyle = '#ff4444';
+                ctx.fillRect(x + 3, y + h - 5, 7, 4);
+                ctx.fillRect(x + w - 10, y + h - 5, 7, 4);
+            }
+
+            // Side details
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.fillRect(x + 1, y + h * 0.35, 3, h * 0.3);
+            ctx.fillRect(x + w - 4, y + h * 0.35, 3, h * 0.3);
+        }
+
+        function drawPlayer() {
+            const px = player.x - PLAYER_W / 2;
+            const py = player.y - PLAYER_H / 2;
+            drawCar(px, py, PLAYER_W, PLAYER_H, '#e94560', true);
+        }
+
+        function drawEnemies() {
+            for (const e of enemies) {
+                drawCar(e.x - e.w / 2, e.y - e.h / 2, e.w, e.h, e.color, false);
+            }
+        }
+
+        function drawBackground() {
+            // Sky gradient
+            const grad = ctx.createLinearGradient(0, 0, 0, H);
+            grad.addColorStop(0, '#0f3460');
+            grad.addColorStop(1, '#16213e');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+        }
+
+        function drawTurboEffect() {
+            if (!turbo) return;
+            ctx.save();
+            ctx.globalAlpha = 0.15;
+            ctx.fillStyle = '#e94560';
+            for (let i = 0; i < 5; i++) {
+                const ox = player.x - PLAYER_W / 2 + Math.random() * PLAYER_W;
+                const oy = player.y + PLAYER_H / 2 + Math.random() * 30;
+                const r = 3 + Math.random() * 5;
+                ctx.beginPath();
+                ctx.arc(ox, oy, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // ---- Game logic ----
+
+        function resetGame() {
+            score = 0;
+            baseSpeed = 3;
+            speedMultiplier = 1;
+            frameCount = 0;
+            spawnInterval = 55;
+            enemies = [];
+            player.x = ROAD_LEFT + ROAD_WIDTH / 2;
+            player.y = H - 100;
+        }
+
+        function spawnEnemy() {
+            const lane = Math.floor(Math.random() * LANE_COUNT);
+            const w = 30 + Math.random() * 12;
+            const h = 54 + Math.random() * 14;
+            const color = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)];
+            const x = ROAD_LEFT + lane * LANE_WIDTH + LANE_WIDTH / 2;
+            const speed = (1.5 + Math.random() * 2) * speedMultiplier;
+
+            // Don't spawn if too close to another enemy in same lane
+            const tooClose = enemies.some(e =>
+                Math.abs(e.x - x) < LANE_WIDTH * 0.6 && e.y < 120
+            );
+            if (tooClose) return;
+
+            enemies.push({ x, y: -h, w, h, color, speed });
+        }
+
+        function updatePlayer() {
+            const moveSpeed = 4.5;
+
+            if (keys['ArrowLeft'] || keys['KeyA']) {
+                player.x -= moveSpeed;
+            }
+            if (keys['ArrowRight'] || keys['KeyD']) {
+                player.x += moveSpeed;
+            }
+
+            // Clamp to road
+            player.x = Math.max(ROAD_LEFT + PLAYER_W / 2 + 6, Math.min(ROAD_RIGHT - PLAYER_W / 2 - 6, player.x));
+
+            turbo = !!keys['Space'];
+            speedMultiplier = turbo ? 2 : 1;
+        }
+
+        function updateEnemies() {
+            const speed = baseSpeed * speedMultiplier;
+            for (const e of enemies) {
+                e.y += (e.speed + speed);
+            }
+            // Remove off-screen
+            enemies = enemies.filter(e => e.y - e.h / 2 < H + 20);
+        }
+
+        function checkCollisions() {
+            const px1 = player.x - PLAYER_W / 2 + 4;
+            const py1 = player.y - PLAYER_H / 2 + 4;
+            const px2 = player.x + PLAYER_W / 2 - 4;
+            const py2 = player.y + PLAYER_H / 2 - 4;
+
+            for (const e of enemies) {
+                const ex1 = e.x - e.w / 2 + 3;
+                const ey1 = e.y - e.h / 2 + 3;
+                const ex2 = e.x + e.w / 2 - 3;
+                const ey2 = e.y + e.h / 2 - 3;
+
+                if (px1 < ex2 && px2 > ex1 && py1 < ey2 && py2 > ey1) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function updateDifficulty() {
+            // Increase speed over time
+            baseSpeed = 3 + score / 500;
+            spawnInterval = Math.max(20, 55 - Math.floor(score / 200));
+        }
+
+        function gameOver() {
+            state = 'gameover';
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('trafficDodgeHigh', String(highScore));
+            }
+            showOverlay();
+        }
+
+        function showOverlay() {
+            overlay.classList.remove('hidden');
+            hud.classList.add('hidden');
+            controlsInfo.classList.add('hidden');
+
+            if (state === 'gameover') {
+                overlay.innerHTML = `
+                    <h1>Game Over</h1>
+                    <div class="score-display">Score: ${score}</div>
+                    <h2>Meilleur: ${highScore}</h2>
+                    <p></p>
+                    <button id="startBtn" onclick="document.getElementById('startBtn').blur()">Rejouer</button>
+                `;
+                overlay.querySelector('#startBtn').addEventListener('click', startGame);
+            }
+        }
+
+        function startGame() {
+            resetGame();
+            state = 'playing';
+            overlay.classList.add('hidden');
+            hud.classList.remove('hidden');
+            controlsInfo.classList.remove('hidden');
+        }
+
+        // ---- Main loop ----
+
+        function gameLoop() {
+            if (state === 'playing') {
+                frameCount++;
+
+                updatePlayer();
+                updateEnemies();
+
+                // Score
+                const scoreInc = turbo ? 2 : 1;
+                score += scoreInc;
+                updateDifficulty();
+
+                // Spawn enemies
+                if (frameCount % spawnInterval === 0) {
+                    spawnEnemy();
+                }
+
+                // Collision
+                if (checkCollisions()) {
+                    gameOver();
+                }
+
+                // Update HUD
+                scoreHud.textContent = `Score: ${score}`;
+                speedHud.textContent = turbo ? 'TURBO!' : `Vitesse: ${baseSpeed.toFixed(1)}`;
+            }
+
+            // Draw
+            drawBackground();
+            drawRoad();
+            drawEnemies();
+
+            if (state === 'playing' || state === 'gameover') {
+                drawPlayer();
+                drawTurboEffect();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ---- Input handlers ----
+
+        document.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(e.code)) {
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('keyup', e => {
+            keys[e.code] = false;
+        });
+
+        // Touch controls
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            const rect = canvas.getBoundingClientRect();
+            const relX = touch.clientX - rect.left;
+            if (relX < rect.width / 2) {
+                keys['ArrowLeft'] = true;
+            } else {
+                keys['ArrowRight'] = true;
+            }
+        });
+
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+        });
+
+        canvas.addEventListener('touchend', e => {
+            e.preventDefault();
+            keys['ArrowLeft'] = false;
+            keys['ArrowRight'] = false;
+            touchStartX = null;
+        });
+
+        // Start button
+        startBtn.addEventListener('click', startGame);
+
+        // Init
+        drawBackground();
+        drawRoad();
+        gameLoop();
+    })();
+    </script>
+</body>
+</html>
