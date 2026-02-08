@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traffic Dodge - Jeu d'évitement</title>
+    <title>Clope Catcher</title>
     <style>
         * {
             margin: 0;
@@ -12,7 +12,7 @@
         }
 
         body {
-            background: #1a1a2e;
+            background: #0d0d0d;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -26,8 +26,8 @@
         }
 
         canvas {
-            border: 3px solid #e94560;
-            border-radius: 8px;
+            border: 3px solid #ff8c00;
+            border-radius: 10px;
             display: block;
         }
 
@@ -41,8 +41,8 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background: rgba(0, 0, 0, 0.75);
-            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.82);
+            border-radius: 10px;
             z-index: 10;
         }
 
@@ -51,10 +51,10 @@
         }
 
         #overlay h1 {
-            color: #e94560;
-            font-size: 42px;
+            color: #ff8c00;
+            font-size: 44px;
             margin-bottom: 10px;
-            text-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+            text-shadow: 0 0 25px rgba(255, 140, 0, 0.6);
         }
 
         #overlay h2 {
@@ -64,23 +64,24 @@
         }
 
         #overlay p {
-            color: #aaa;
-            font-size: 16px;
-            margin-bottom: 20px;
+            color: #bbb;
+            font-size: 15px;
+            margin-bottom: 15px;
             text-align: center;
-            line-height: 1.6;
+            line-height: 1.7;
+            max-width: 340px;
         }
 
         #overlay .score-display {
             color: #f5c518;
-            font-size: 28px;
-            margin-bottom: 20px;
+            font-size: 30px;
+            margin-bottom: 15px;
         }
 
-        #startBtn {
-            padding: 14px 40px;
-            font-size: 20px;
-            background: #e94560;
+        .btn {
+            padding: 14px 36px;
+            font-size: 18px;
+            background: #ff8c00;
             color: white;
             border: none;
             border-radius: 30px;
@@ -88,17 +89,29 @@
             transition: all 0.3s;
             text-transform: uppercase;
             letter-spacing: 2px;
+            margin: 6px;
         }
 
-        #startBtn:hover {
-            background: #ff6b81;
+        .btn:hover {
+            background: #ffa633;
             transform: scale(1.05);
-            box-shadow: 0 0 25px rgba(233, 69, 96, 0.6);
+            box-shadow: 0 0 25px rgba(255, 140, 0, 0.5);
+        }
+
+        .btn-small {
+            padding: 10px 22px;
+            font-size: 14px;
+            background: #555;
+        }
+
+        .btn-small:hover {
+            background: #777;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
         }
 
         #hud {
             position: absolute;
-            top: 12px;
+            top: 10px;
             left: 12px;
             right: 12px;
             display: flex;
@@ -106,36 +119,46 @@
             color: white;
             font-size: 18px;
             font-weight: bold;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            text-shadow: 1px 1px 4px rgba(0,0,0,0.9);
             z-index: 5;
             pointer-events: none;
         }
 
         #controls-info {
             position: absolute;
-            bottom: 10px;
+            bottom: 8px;
             width: 100%;
             text-align: center;
-            color: #666;
-            font-size: 13px;
+            color: #555;
+            font-size: 12px;
             z-index: 5;
             pointer-events: none;
+        }
+
+        #photoInput {
+            display: none;
         }
     </style>
 </head>
 <body>
     <div id="gameContainer">
-        <canvas id="gameCanvas" width="400" height="650"></canvas>
+        <canvas id="gameCanvas" width="420" height="680"></canvas>
         <div id="hud" class="hidden">
-            <span id="scoreHud">Score: 0</span>
-            <span id="speedHud">Vitesse: 1x</span>
+            <span id="scoreHud">Clopes: 0</span>
+            <span id="comboHud"></span>
         </div>
         <div id="overlay">
-            <h1>Traffic Dodge</h1>
-            <p>Esquivez les voitures sur la route !<br>Utilisez les fleches ou A/D pour bouger.<br>Appuyez sur Espace pour acc&eacute;l&eacute;rer.</p>
-            <button id="startBtn">Jouer</button>
+            <h1>Clope Catcher</h1>
+            <p>Attrape les cigarettes avec ta bouche !<br>
+               Fleches gauche/droite ou A/D pour bouger.<br>
+               Chaque clope attrapee = fumee et points !</p>
+            <button class="btn" id="startBtn">Jouer</button>
+            <br>
+            <label class="btn btn-small" for="photoInput">Charger ma photo</label>
+            <input type="file" id="photoInput" accept="image/*">
+            <p style="font-size:12px; color:#666; margin-top:8px;">Place ta photo (player.jpg) dans le meme dossier,<br>ou clique "Charger ma photo" ci-dessus.</p>
         </div>
-        <div id="controls-info" class="hidden">Fleches / A-D : bouger | Espace : turbo</div>
+        <div id="controls-info" class="hidden">Fleches / A-D : bouger la tete</div>
     </div>
 
     <script>
@@ -145,190 +168,363 @@
         const overlay = document.getElementById('overlay');
         const startBtn = document.getElementById('startBtn');
         const scoreHud = document.getElementById('scoreHud');
-        const speedHud = document.getElementById('speedHud');
+        const comboHud = document.getElementById('comboHud');
         const hud = document.getElementById('hud');
         const controlsInfo = document.getElementById('controls-info');
+        const photoInput = document.getElementById('photoInput');
 
         const W = canvas.width;
         const H = canvas.height;
 
-        // Road config
-        const ROAD_LEFT = 60;
-        const ROAD_RIGHT = W - 60;
-        const ROAD_WIDTH = ROAD_RIGHT - ROAD_LEFT;
-        const LANE_COUNT = 4;
-        const LANE_WIDTH = ROAD_WIDTH / LANE_COUNT;
-
-        // Player config
-        const PLAYER_W = 36;
-        const PLAYER_H = 60;
-
-        // Colors for enemy cars
-        const CAR_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#ffffff'];
+        // Player (head) config
+        const HEAD_SIZE = 90;
+        const MOUTH_Y_OFFSET = 28; // mouth is below center of head
 
         // Game state
-        let state = 'menu'; // menu | playing | gameover
+        let state = 'menu';
         let score = 0;
-        let highScore = parseInt(localStorage.getItem('trafficDodgeHigh') || '0');
-        let baseSpeed = 3;
-        let speedMultiplier = 1;
-        let turbo = false;
+        let highScore = parseInt(localStorage.getItem('clopeCatcherHigh') || '0');
+        let combo = 0;
+        let maxCombo = 0;
+        let missedCount = 0;
+        const MAX_MISSED = 5;
         let frameCount = 0;
-        let spawnInterval = 60;
+        let spawnInterval = 50;
+        let fallSpeed = 2.5;
 
         // Player
-        let player = { x: 0, y: 0, lane: 1.5 };
+        let player = { x: W / 2, y: H - 70 };
 
-        // Enemies
-        let enemies = [];
+        // Cigarettes
+        let cigarettes = [];
 
-        // Road lines
-        let roadLineOffset = 0;
+        // Smoke particles
+        let smokeParticles = [];
+
+        // Floating texts (+1, +2, etc.)
+        let floatingTexts = [];
+
+        // Lives display
+        let lives = MAX_MISSED;
+
+        // Player image
+        let playerImg = null;
+        let playerImgLoaded = false;
+
+        // Load player image from file
+        function loadPlayerImage(src) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                playerImg = img;
+                playerImgLoaded = true;
+            };
+            img.onerror = () => {
+                playerImgLoaded = false;
+            };
+            img.src = src;
+        }
+
+        // Try loading player.jpg from same directory
+        loadPlayerImage('player.jpg');
+
+        // File input handler
+        photoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                loadPlayerImage(ev.target.result);
+            };
+            reader.readAsDataURL(file);
+        });
 
         // Input
         const keys = {};
 
-        // Touch support
-        let touchStartX = null;
-
         // ---- Drawing helpers ----
 
-        function drawRoad() {
-            // Grass
-            ctx.fillStyle = '#2d5a27';
-            ctx.fillRect(0, 0, ROAD_LEFT, H);
-            ctx.fillRect(ROAD_RIGHT, 0, W - ROAD_RIGHT, H);
+        function drawBackground() {
+            // Dark gradient sky
+            const grad = ctx.createLinearGradient(0, 0, 0, H);
+            grad.addColorStop(0, '#1a0a2e');
+            grad.addColorStop(0.5, '#16213e');
+            grad.addColorStop(1, '#0a0a15');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
 
-            // Road surface
-            ctx.fillStyle = '#3a3a3a';
-            ctx.fillRect(ROAD_LEFT, 0, ROAD_WIDTH, H);
-
-            // Road edges
-            ctx.fillStyle = '#f1c40f';
-            ctx.fillRect(ROAD_LEFT, 0, 4, H);
-            ctx.fillRect(ROAD_RIGHT - 4, 0, 4, H);
-
-            // Lane dashes
-            const speed = baseSpeed * speedMultiplier;
-            roadLineOffset = (roadLineOffset + speed) % 40;
-
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([20, 20]);
-            for (let i = 1; i < LANE_COUNT; i++) {
-                const x = ROAD_LEFT + i * LANE_WIDTH;
-                ctx.beginPath();
-                ctx.moveTo(x, -20 + roadLineOffset);
-                ctx.lineTo(x, H);
-                ctx.stroke();
+            // Subtle city silhouette at bottom
+            ctx.fillStyle = '#111122';
+            for (let i = 0; i < 12; i++) {
+                const bx = i * 38 - 10;
+                const bh = 30 + Math.sin(i * 2.7) * 25 + Math.cos(i * 1.3) * 15;
+                ctx.fillRect(bx, H - bh - 20, 32, bh + 20);
             }
-            ctx.setLineDash([]);
         }
 
-        function drawCar(x, y, w, h, color, isPlayer) {
-            // Car body
-            ctx.fillStyle = color;
+        function drawCigarette(cig) {
+            const cx = cig.x;
+            const cy = cig.y;
+            const len = cig.len;
+            const angle = cig.angle;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+
+            // Cigarette body (white paper)
+            ctx.fillStyle = '#f5f0e8';
             ctx.beginPath();
-            ctx.roundRect(x, y, w, h, 6);
+            ctx.roundRect(-4, -len / 2, 8, len * 0.7, 2);
             ctx.fill();
 
-            // Windshield
-            const windshieldY = isPlayer ? y + 8 : y + h - 22;
-            ctx.fillStyle = '#87ceeb';
-            ctx.globalAlpha = 0.7;
+            // Filter (orange/brown)
+            ctx.fillStyle = '#d4873f';
             ctx.beginPath();
-            ctx.roundRect(x + 5, windshieldY, w - 10, 14, 3);
+            ctx.roundRect(-4, len * 0.2, 8, len * 0.3, [0, 0, 2, 2]);
+            ctx.fill();
+
+            // Lit end (glowing red/orange)
+            ctx.fillStyle = '#ff4500';
+            ctx.beginPath();
+            ctx.roundRect(-4, -len / 2, 8, 5, [2, 2, 0, 0]);
+            ctx.fill();
+
+            // Glow effect
+            ctx.globalAlpha = 0.3 + Math.sin(frameCount * 0.15 + cig.phase) * 0.15;
+            ctx.fillStyle = '#ff6600';
+            ctx.beginPath();
+            ctx.arc(0, -len / 2 + 2, 7, 0, Math.PI * 2);
             ctx.fill();
             ctx.globalAlpha = 1;
 
-            // Headlights / taillights
-            if (isPlayer) {
-                // Headlights (top)
-                ctx.fillStyle = '#ffffaa';
-                ctx.fillRect(x + 3, y + 1, 7, 4);
-                ctx.fillRect(x + w - 10, y + 1, 7, 4);
-            } else {
-                // Taillights (bottom for enemies coming toward player)
-                ctx.fillStyle = '#ff4444';
-                ctx.fillRect(x + 3, y + h - 5, 7, 4);
-                ctx.fillRect(x + w - 10, y + h - 5, 7, 4);
+            // Tiny smoke from lit end
+            ctx.globalAlpha = 0.2;
+            ctx.fillStyle = '#aaa';
+            for (let i = 0; i < 2; i++) {
+                const sx = Math.sin(frameCount * 0.08 + cig.phase + i) * 5;
+                const sy = -len / 2 - 5 - i * 6 - Math.sin(frameCount * 0.05) * 3;
+                ctx.beginPath();
+                ctx.arc(sx, sy, 3 + i, 0, Math.PI * 2);
+                ctx.fill();
             }
+            ctx.globalAlpha = 1;
 
-            // Side details
-            ctx.fillStyle = 'rgba(0,0,0,0.2)';
-            ctx.fillRect(x + 1, y + h * 0.35, 3, h * 0.3);
-            ctx.fillRect(x + w - 4, y + h * 0.35, 3, h * 0.3);
+            ctx.restore();
         }
 
         function drawPlayer() {
-            const px = player.x - PLAYER_W / 2;
-            const py = player.y - PLAYER_H / 2;
-            drawCar(px, py, PLAYER_W, PLAYER_H, '#e94560', true);
-        }
+            const px = player.x;
+            const py = player.y;
+            const size = HEAD_SIZE;
 
-        function drawEnemies() {
-            for (const e of enemies) {
-                drawCar(e.x - e.w / 2, e.y - e.h / 2, e.w, e.h, e.color, false);
-            }
-        }
+            if (playerImgLoaded && playerImg) {
+                // Draw player photo as circular head
+                ctx.save();
 
-        function drawBackground() {
-            // Sky gradient
-            const grad = ctx.createLinearGradient(0, 0, 0, H);
-            grad.addColorStop(0, '#0f3460');
-            grad.addColorStop(1, '#16213e');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, W, H);
-        }
-
-        function drawTurboEffect() {
-            if (!turbo) return;
-            ctx.save();
-            ctx.globalAlpha = 0.15;
-            ctx.fillStyle = '#e94560';
-            for (let i = 0; i < 5; i++) {
-                const ox = player.x - PLAYER_W / 2 + Math.random() * PLAYER_W;
-                const oy = player.y + PLAYER_H / 2 + Math.random() * 30;
-                const r = 3 + Math.random() * 5;
+                // Circular clip
                 ctx.beginPath();
-                ctx.arc(ox, oy, r, 0, Math.PI * 2);
+                ctx.arc(px, py, size / 2, 0, Math.PI * 2);
+                ctx.closePath();
+                ctx.clip();
+
+                // Draw image centered and covering the circle
+                const imgAspect = playerImg.width / playerImg.height;
+                let dw, dh;
+                if (imgAspect > 1) {
+                    dh = size;
+                    dw = size * imgAspect;
+                } else {
+                    dw = size;
+                    dh = size / imgAspect;
+                }
+                ctx.drawImage(playerImg, px - dw / 2, py - dh / 2, dw, dh);
+                ctx.restore();
+
+                // Circle border
+                ctx.strokeStyle = '#ff8c00';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(px, py, size / 2, 0, Math.PI * 2);
+                ctx.stroke();
+
+            } else {
+                // Fallback: draw cartoon head
+                // Face
+                ctx.fillStyle = '#e8b88a';
+                ctx.beginPath();
+                ctx.arc(px, py, size / 2, 0, Math.PI * 2);
                 ctx.fill();
+
+                // Hair
+                ctx.fillStyle = '#2c1810';
+                ctx.beginPath();
+                ctx.ellipse(px, py - size / 2 + 8, size / 2 + 2, 18, 0, Math.PI, Math.PI * 2);
+                ctx.fill();
+
+                // Eyes
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.ellipse(px - 13, py - 8, 8, 6, 0, 0, Math.PI * 2);
+                ctx.ellipse(px + 13, py - 8, 8, 6, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#3a2510';
+                ctx.beginPath();
+                ctx.arc(px - 13, py - 8, 3.5, 0, Math.PI * 2);
+                ctx.arc(px + 13, py - 8, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Beard
+                ctx.fillStyle = '#2c1810';
+                ctx.beginPath();
+                ctx.ellipse(px, py + 20, 22, 18, 0, 0, Math.PI);
+                ctx.fill();
+
+                // Mouth (open, ready to catch)
+                ctx.fillStyle = '#1a0505';
+                ctx.beginPath();
+                ctx.ellipse(px, py + MOUTH_Y_OFFSET, 10, 7, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Border
+                ctx.strokeStyle = '#ff8c00';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(px, py, size / 2, 0, Math.PI * 2);
+                ctx.stroke();
             }
+
+            // Mouth indicator (target zone) - subtle glow
+            ctx.save();
+            ctx.globalAlpha = 0.15 + Math.sin(frameCount * 0.08) * 0.08;
+            ctx.strokeStyle = '#ff8c00';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(px, py + MOUTH_Y_OFFSET, 14, 0, Math.PI * 2);
+            ctx.stroke();
             ctx.restore();
+        }
+
+        function drawSmoke() {
+            for (const p of smokeParticles) {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function drawFloatingTexts() {
+            for (const ft of floatingTexts) {
+                ctx.save();
+                ctx.globalAlpha = ft.alpha;
+                ctx.fillStyle = ft.color;
+                ctx.font = `bold ${ft.size}px 'Segoe UI', sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            }
+        }
+
+        function drawLives() {
+            const startX = W - 15;
+            const y = 38;
+            for (let i = 0; i < MAX_MISSED; i++) {
+                const x = startX - i * 18;
+                if (i < lives) {
+                    // Full heart
+                    ctx.fillStyle = '#e74c3c';
+                } else {
+                    // Empty heart
+                    ctx.fillStyle = '#333';
+                }
+                ctx.font = '16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('\u2764', x, y);
+            }
+        }
+
+        // ---- Particle effects ----
+
+        function spawnSmoke(x, y, amount) {
+            for (let i = 0; i < amount; i++) {
+                smokeParticles.push({
+                    x: x + (Math.random() - 0.5) * 20,
+                    y: y - 10 + Math.random() * 10,
+                    vx: (Math.random() - 0.5) * 1.5,
+                    vy: -1 - Math.random() * 2,
+                    r: 4 + Math.random() * 8,
+                    alpha: 0.6 + Math.random() * 0.3,
+                    color: Math.random() > 0.3 ? '#ccc' : '#999',
+                    decay: 0.006 + Math.random() * 0.008,
+                    grow: 0.15 + Math.random() * 0.2
+                });
+            }
+        }
+
+        function spawnFloatingText(x, y, text, color) {
+            floatingTexts.push({
+                x, y, text, color,
+                alpha: 1,
+                vy: -1.5,
+                size: 24
+            });
+        }
+
+        function updateSmoke() {
+            for (const p of smokeParticles) {
+                p.x += p.vx + Math.sin(frameCount * 0.03 + p.x * 0.1) * 0.3;
+                p.y += p.vy;
+                p.r += p.grow;
+                p.alpha -= p.decay;
+                p.vy *= 0.99;
+            }
+            smokeParticles = smokeParticles.filter(p => p.alpha > 0.01);
+        }
+
+        function updateFloatingTexts() {
+            for (const ft of floatingTexts) {
+                ft.y += ft.vy;
+                ft.alpha -= 0.015;
+                ft.size += 0.2;
+            }
+            floatingTexts = floatingTexts.filter(ft => ft.alpha > 0);
         }
 
         // ---- Game logic ----
 
         function resetGame() {
             score = 0;
-            baseSpeed = 3;
-            speedMultiplier = 1;
+            combo = 0;
+            maxCombo = 0;
+            missedCount = 0;
+            lives = MAX_MISSED;
             frameCount = 0;
+            fallSpeed = 2.5;
             spawnInterval = 55;
-            enemies = [];
-            player.x = ROAD_LEFT + ROAD_WIDTH / 2;
-            player.y = H - 100;
+            cigarettes = [];
+            smokeParticles = [];
+            floatingTexts = [];
+            player.x = W / 2;
+            player.y = H - 70;
         }
 
-        function spawnEnemy() {
-            const lane = Math.floor(Math.random() * LANE_COUNT);
-            const w = 30 + Math.random() * 12;
-            const h = 54 + Math.random() * 14;
-            const color = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)];
-            const x = ROAD_LEFT + lane * LANE_WIDTH + LANE_WIDTH / 2;
-            const speed = (1.5 + Math.random() * 2) * speedMultiplier;
+        function spawnCigarette() {
+            const x = 30 + Math.random() * (W - 60);
+            const len = 32 + Math.random() * 12;
+            const angle = (Math.random() - 0.5) * 0.4;
+            const speed = fallSpeed + Math.random() * 1.5;
+            const wobble = 0.3 + Math.random() * 0.5;
+            const phase = Math.random() * Math.PI * 2;
 
-            // Don't spawn if too close to another enemy in same lane
-            const tooClose = enemies.some(e =>
-                Math.abs(e.x - x) < LANE_WIDTH * 0.6 && e.y < 120
-            );
-            if (tooClose) return;
-
-            enemies.push({ x, y: -h, w, h, color, speed });
+            cigarettes.push({ x, y: -len, len, angle, speed, wobble, phase, caught: false });
         }
 
         function updatePlayer() {
-            const moveSpeed = 4.5;
+            const moveSpeed = 5.5;
 
             if (keys['ArrowLeft'] || keys['KeyA']) {
                 player.x -= moveSpeed;
@@ -337,52 +533,75 @@
                 player.x += moveSpeed;
             }
 
-            // Clamp to road
-            player.x = Math.max(ROAD_LEFT + PLAYER_W / 2 + 6, Math.min(ROAD_RIGHT - PLAYER_W / 2 - 6, player.x));
-
-            turbo = !!keys['Space'];
-            speedMultiplier = turbo ? 2 : 1;
+            // Clamp to screen
+            player.x = Math.max(HEAD_SIZE / 2 + 5, Math.min(W - HEAD_SIZE / 2 - 5, player.x));
         }
 
-        function updateEnemies() {
-            const speed = baseSpeed * speedMultiplier;
-            for (const e of enemies) {
-                e.y += (e.speed + speed);
+        function updateCigarettes() {
+            for (const c of cigarettes) {
+                c.y += c.speed;
+                c.x += Math.sin(frameCount * 0.04 + c.phase) * c.wobble * 0.5;
             }
-            // Remove off-screen
-            enemies = enemies.filter(e => e.y - e.h / 2 < H + 20);
-        }
 
-        function checkCollisions() {
-            const px1 = player.x - PLAYER_W / 2 + 4;
-            const py1 = player.y - PLAYER_H / 2 + 4;
-            const px2 = player.x + PLAYER_W / 2 - 4;
-            const py2 = player.y + PLAYER_H / 2 - 4;
+            // Check catches and misses
+            const mouthX = player.x;
+            const mouthY = player.y + MOUTH_Y_OFFSET;
+            const catchRadius = 22;
 
-            for (const e of enemies) {
-                const ex1 = e.x - e.w / 2 + 3;
-                const ey1 = e.y - e.h / 2 + 3;
-                const ex2 = e.x + e.w / 2 - 3;
-                const ey2 = e.y + e.h / 2 - 3;
+            for (const c of cigarettes) {
+                if (c.caught) continue;
 
-                if (px1 < ex2 && px2 > ex1 && py1 < ey2 && py2 > ey1) {
-                    return true;
+                // Check if cigarette tip is near the mouth
+                const tipY = c.y + c.len / 2;
+                const dist = Math.sqrt((c.x - mouthX) ** 2 + (tipY - mouthY) ** 2);
+
+                if (dist < catchRadius) {
+                    c.caught = true;
+                    combo++;
+                    if (combo > maxCombo) maxCombo = combo;
+                    const points = combo >= 5 ? 3 : combo >= 3 ? 2 : 1;
+                    score += points;
+
+                    // Smoke effect
+                    spawnSmoke(mouthX, mouthY - 20, 12 + combo * 3);
+
+                    // Floating text
+                    const txt = combo >= 5 ? `+${points} CHAIN!` : combo >= 3 ? `+${points} Combo!` : `+${points}`;
+                    const color = combo >= 5 ? '#ff4500' : combo >= 3 ? '#ffa500' : '#f5c518';
+                    spawnFloatingText(mouthX, mouthY - 40, txt, color);
                 }
             }
-            return false;
+
+            // Remove caught and off-screen cigarettes
+            const before = cigarettes.filter(c => !c.caught && c.y > H + 20).length;
+            if (before > 0) {
+                missedCount += before;
+                lives = MAX_MISSED - missedCount;
+                combo = 0; // reset combo on miss
+
+                if (missedCount >= MAX_MISSED) {
+                    gameOver();
+                    return;
+                }
+            }
+
+            cigarettes = cigarettes.filter(c => {
+                if (c.caught) return false;
+                if (c.y > H + 20) return false;
+                return true;
+            });
         }
 
         function updateDifficulty() {
-            // Increase speed over time
-            baseSpeed = 3 + score / 500;
-            spawnInterval = Math.max(20, 55 - Math.floor(score / 200));
+            fallSpeed = 2.5 + score / 80;
+            spawnInterval = Math.max(18, 50 - Math.floor(score / 15));
         }
 
         function gameOver() {
             state = 'gameover';
             if (score > highScore) {
                 highScore = score;
-                localStorage.setItem('trafficDodgeHigh', String(highScore));
+                localStorage.setItem('clopeCatcherHigh', String(highScore));
             }
             showOverlay();
         }
@@ -393,12 +612,15 @@
             controlsInfo.classList.add('hidden');
 
             if (state === 'gameover') {
+                const newRecord = score >= highScore && score > 0 ? '<span style="color:#ff4500;">NOUVEAU RECORD !</span><br>' : '';
                 overlay.innerHTML = `
                     <h1>Game Over</h1>
-                    <div class="score-display">Score: ${score}</div>
-                    <h2>Meilleur: ${highScore}</h2>
+                    <div class="score-display">Clopes fumees: ${score}</div>
+                    ${newRecord}
+                    <h2>Max combo: ${maxCombo}x</h2>
+                    <h2 style="color:#aaa;">Record: ${highScore}</h2>
                     <p></p>
-                    <button id="startBtn" onclick="document.getElementById('startBtn').blur()">Rejouer</button>
+                    <button class="btn" id="startBtn">Rejouer</button>
                 `;
                 overlay.querySelector('#startBtn').addEventListener('click', startGame);
             }
@@ -419,36 +641,39 @@
                 frameCount++;
 
                 updatePlayer();
-                updateEnemies();
-
-                // Score
-                const scoreInc = turbo ? 2 : 1;
-                score += scoreInc;
+                updateCigarettes();
+                updateSmoke();
+                updateFloatingTexts();
                 updateDifficulty();
 
-                // Spawn enemies
+                // Spawn cigarettes
                 if (frameCount % spawnInterval === 0) {
-                    spawnEnemy();
-                }
-
-                // Collision
-                if (checkCollisions()) {
-                    gameOver();
+                    spawnCigarette();
                 }
 
                 // Update HUD
-                scoreHud.textContent = `Score: ${score}`;
-                speedHud.textContent = turbo ? 'TURBO!' : `Vitesse: ${baseSpeed.toFixed(1)}`;
+                scoreHud.textContent = `Clopes: ${score}`;
+                comboHud.textContent = combo >= 2 ? `Combo: ${combo}x` : '';
+            } else {
+                updateSmoke();
+                updateFloatingTexts();
             }
 
             // Draw
             drawBackground();
-            drawRoad();
-            drawEnemies();
+
+            // Draw cigarettes
+            for (const c of cigarettes) {
+                drawCigarette(c);
+            }
+
+            // Draw smoke behind player
+            drawSmoke();
 
             if (state === 'playing' || state === 'gameover') {
                 drawPlayer();
-                drawTurboEffect();
+                drawFloatingTexts();
+                drawLives();
             }
 
             requestAnimationFrame(gameLoop);
@@ -470,10 +695,8 @@
         // Touch controls
         canvas.addEventListener('touchstart', e => {
             e.preventDefault();
-            const touch = e.touches[0];
-            touchStartX = touch.clientX;
             const rect = canvas.getBoundingClientRect();
-            const relX = touch.clientX - rect.left;
+            const relX = e.touches[0].clientX - rect.left;
             if (relX < rect.width / 2) {
                 keys['ArrowLeft'] = true;
             } else {
@@ -489,7 +712,6 @@
             e.preventDefault();
             keys['ArrowLeft'] = false;
             keys['ArrowRight'] = false;
-            touchStartX = null;
         });
 
         // Start button
@@ -497,7 +719,6 @@
 
         // Init
         drawBackground();
-        drawRoad();
         gameLoop();
     })();
     </script>
