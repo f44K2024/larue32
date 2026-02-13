@@ -3,724 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clope Catcher</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            background: #0d0d0d;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden;
-        }
-
-        #gameContainer {
-            position: relative;
-        }
-
-        canvas {
-            border: 3px solid #ff8c00;
-            border-radius: 10px;
-            display: block;
-        }
-
-        #overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background: rgba(0, 0, 0, 0.82);
-            border-radius: 10px;
-            z-index: 10;
-        }
-
-        #overlay.hidden {
-            display: none;
-        }
-
-        #overlay h1 {
-            color: #ff8c00;
-            font-size: 44px;
-            margin-bottom: 10px;
-            text-shadow: 0 0 25px rgba(255, 140, 0, 0.6);
-        }
-
-        #overlay h2 {
-            color: #eee;
-            font-size: 22px;
-            margin-bottom: 8px;
-        }
-
-        #overlay p {
-            color: #bbb;
-            font-size: 15px;
-            margin-bottom: 15px;
-            text-align: center;
-            line-height: 1.7;
-            max-width: 340px;
-        }
-
-        #overlay .score-display {
-            color: #f5c518;
-            font-size: 30px;
-            margin-bottom: 15px;
-        }
-
-        .btn {
-            padding: 14px 36px;
-            font-size: 18px;
-            background: #ff8c00;
-            color: white;
-            border: none;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin: 6px;
-        }
-
-        .btn:hover {
-            background: #ffa633;
-            transform: scale(1.05);
-            box-shadow: 0 0 25px rgba(255, 140, 0, 0.5);
-        }
-
-        .btn-small {
-            padding: 10px 22px;
-            font-size: 14px;
-            background: #555;
-        }
-
-        .btn-small:hover {
-            background: #777;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
-        }
-
-        #hud {
-            position: absolute;
-            top: 10px;
-            left: 12px;
-            right: 12px;
-            display: flex;
-            justify-content: space-between;
-            color: white;
-            font-size: 18px;
-            font-weight: bold;
-            text-shadow: 1px 1px 4px rgba(0,0,0,0.9);
-            z-index: 5;
-            pointer-events: none;
-        }
-
-        #controls-info {
-            position: absolute;
-            bottom: 8px;
-            width: 100%;
-            text-align: center;
-            color: #555;
-            font-size: 12px;
-            z-index: 5;
-            pointer-events: none;
-        }
-
-        #photoInput {
-            display: none;
-        }
-    </style>
+    <title>Voice Chat AI</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="gameContainer">
-        <canvas id="gameCanvas" width="420" height="680"></canvas>
-        <div id="hud" class="hidden">
-            <span id="scoreHud">Clopes: 0</span>
-            <span id="comboHud"></span>
+    <div class="app">
+        <!-- Ecran de configuration -->
+        <div id="setup-screen" class="screen active">
+            <div class="setup-container">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/>
+                            <line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                    </div>
+                    <h1>Voice Chat AI</h1>
+                    <p class="subtitle">Discute avec une IA par la voix</p>
+                </div>
+
+                <div class="setup-form">
+                    <div class="input-group">
+                        <label for="openai-key">Cl&eacute; API OpenAI</label>
+                        <input type="password" id="openai-key" placeholder="sk-...">
+                        <span class="input-hint">Compatible avec les cl&eacute;s gratuites</span>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="elevenlabs-key">Cl&eacute; API ElevenLabs</label>
+                        <input type="password" id="elevenlabs-key" placeholder="Votre cl&eacute; ElevenLabs">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="voice-select">Voix ElevenLabs</label>
+                        <select id="voice-select" disabled>
+                            <option value="">-- Entrez votre cl&eacute; ElevenLabs --</option>
+                        </select>
+                        <button id="load-voices-btn" class="btn-secondary" disabled>Charger les voix</button>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="system-prompt">Personnalit&eacute; de l'IA</label>
+                        <textarea id="system-prompt" rows="3" placeholder="Ex: Tu es un assistant amical et dr&ocirc;le qui parle fran&ccedil;ais.">Tu es un assistant vocal amical et concis. Tu r&eacute;ponds en fran&ccedil;ais avec des phrases courtes et naturelles, comme dans une vraie conversation.</textarea>
+                    </div>
+
+                    <button id="start-btn" class="btn-primary" disabled>
+                        <span>Commencer le chat</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                            <polygon points="5 3 19 12 5 21 5 3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
         </div>
-        <div id="overlay">
-            <h1>Clope Catcher</h1>
-            <p>Attrape les cigarettes avec ta bouche !<br>
-               Fleches gauche/droite ou A/D pour bouger.<br>
-               Chaque clope attrapee = fumee et points !</p>
-            <button class="btn" id="startBtn">Jouer</button>
-            <br>
-            <label class="btn btn-small" for="photoInput">Charger ma photo</label>
-            <input type="file" id="photoInput" accept="image/*">
-            <p style="font-size:12px; color:#666; margin-top:8px;">Place ta photo (player.jpg) dans le meme dossier,<br>ou clique "Charger ma photo" ci-dessus.</p>
+
+        <!-- Ecran de chat -->
+        <div id="chat-screen" class="screen">
+            <header class="chat-header">
+                <button id="back-btn" class="btn-icon" title="Retour">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                </button>
+                <div class="header-info">
+                    <h2>Voice Chat AI</h2>
+                    <span id="status-text" class="status">En ligne</span>
+                </div>
+                <div id="ai-avatar" class="avatar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    </svg>
+                </div>
+            </header>
+
+            <div id="chat-messages" class="chat-messages">
+                <div class="welcome-msg">
+                    <p>Appuie sur le micro pour parler, ou tape un message.</p>
+                </div>
+            </div>
+
+            <div id="visualizer-container" class="visualizer-container hidden">
+                <canvas id="visualizer"></canvas>
+                <span id="recording-time">0:00</span>
+            </div>
+
+            <footer class="chat-footer">
+                <div class="input-bar">
+                    <input type="text" id="text-input" placeholder="Tape un message..." autocomplete="off">
+                    <button id="send-btn" class="btn-icon" title="Envoyer" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                            <line x1="22" y1="2" x2="11" y2="13"/>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        </svg>
+                    </button>
+                </div>
+                <button id="mic-btn" class="mic-btn" title="Maintenir pour parler">
+                    <div class="mic-btn-inner">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/>
+                            <line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                    </div>
+                    <div class="mic-pulse"></div>
+                </button>
+            </footer>
         </div>
-        <div id="controls-info" class="hidden">Fleches / A-D : bouger la tete</div>
     </div>
 
-    <script>
-    (() => {
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const overlay = document.getElementById('overlay');
-        const startBtn = document.getElementById('startBtn');
-        const scoreHud = document.getElementById('scoreHud');
-        const comboHud = document.getElementById('comboHud');
-        const hud = document.getElementById('hud');
-        const controlsInfo = document.getElementById('controls-info');
-        const photoInput = document.getElementById('photoInput');
-
-        const W = canvas.width;
-        const H = canvas.height;
-
-        // Player (head) config
-        const HEAD_SIZE = 90;
-        const MOUTH_Y_OFFSET = 28; // mouth is below center of head
-
-        // Game state
-        let state = 'menu';
-        let score = 0;
-        let highScore = parseInt(localStorage.getItem('clopeCatcherHigh') || '0');
-        let combo = 0;
-        let maxCombo = 0;
-        let missedCount = 0;
-        const MAX_MISSED = 5;
-        let frameCount = 0;
-        let spawnInterval = 50;
-        let fallSpeed = 2.5;
-
-        // Player
-        let player = { x: W / 2, y: H - 70 };
-
-        // Cigarettes
-        let cigarettes = [];
-
-        // Smoke particles
-        let smokeParticles = [];
-
-        // Floating texts (+1, +2, etc.)
-        let floatingTexts = [];
-
-        // Lives display
-        let lives = MAX_MISSED;
-
-        // Player image
-        let playerImg = null;
-        let playerImgLoaded = false;
-
-        // Load player image from file
-        function loadPlayerImage(src) {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => {
-                playerImg = img;
-                playerImgLoaded = true;
-            };
-            img.onerror = () => {
-                playerImgLoaded = false;
-            };
-            img.src = src;
-        }
-
-        // Try loading player.jpg from same directory
-        loadPlayerImage('player.jpg');
-
-        // File input handler
-        photoInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                loadPlayerImage(ev.target.result);
-            };
-            reader.readAsDataURL(file);
-        });
-
-        // Input
-        const keys = {};
-
-        // ---- Drawing helpers ----
-
-        function drawBackground() {
-            // Dark gradient sky
-            const grad = ctx.createLinearGradient(0, 0, 0, H);
-            grad.addColorStop(0, '#1a0a2e');
-            grad.addColorStop(0.5, '#16213e');
-            grad.addColorStop(1, '#0a0a15');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, W, H);
-
-            // Subtle city silhouette at bottom
-            ctx.fillStyle = '#111122';
-            for (let i = 0; i < 12; i++) {
-                const bx = i * 38 - 10;
-                const bh = 30 + Math.sin(i * 2.7) * 25 + Math.cos(i * 1.3) * 15;
-                ctx.fillRect(bx, H - bh - 20, 32, bh + 20);
-            }
-        }
-
-        function drawCigarette(cig) {
-            const cx = cig.x;
-            const cy = cig.y;
-            const len = cig.len;
-            const angle = cig.angle;
-
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.rotate(angle);
-
-            // Cigarette body (white paper)
-            ctx.fillStyle = '#f5f0e8';
-            ctx.beginPath();
-            ctx.roundRect(-4, -len / 2, 8, len * 0.7, 2);
-            ctx.fill();
-
-            // Filter (orange/brown)
-            ctx.fillStyle = '#d4873f';
-            ctx.beginPath();
-            ctx.roundRect(-4, len * 0.2, 8, len * 0.3, [0, 0, 2, 2]);
-            ctx.fill();
-
-            // Lit end (glowing red/orange)
-            ctx.fillStyle = '#ff4500';
-            ctx.beginPath();
-            ctx.roundRect(-4, -len / 2, 8, 5, [2, 2, 0, 0]);
-            ctx.fill();
-
-            // Glow effect
-            ctx.globalAlpha = 0.3 + Math.sin(frameCount * 0.15 + cig.phase) * 0.15;
-            ctx.fillStyle = '#ff6600';
-            ctx.beginPath();
-            ctx.arc(0, -len / 2 + 2, 7, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 1;
-
-            // Tiny smoke from lit end
-            ctx.globalAlpha = 0.2;
-            ctx.fillStyle = '#aaa';
-            for (let i = 0; i < 2; i++) {
-                const sx = Math.sin(frameCount * 0.08 + cig.phase + i) * 5;
-                const sy = -len / 2 - 5 - i * 6 - Math.sin(frameCount * 0.05) * 3;
-                ctx.beginPath();
-                ctx.arc(sx, sy, 3 + i, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-
-            ctx.restore();
-        }
-
-        function drawPlayer() {
-            const px = player.x;
-            const py = player.y;
-            const size = HEAD_SIZE;
-
-            if (playerImgLoaded && playerImg) {
-                // Draw player photo as circular head
-                ctx.save();
-
-                // Circular clip
-                ctx.beginPath();
-                ctx.arc(px, py, size / 2, 0, Math.PI * 2);
-                ctx.closePath();
-                ctx.clip();
-
-                // Draw image centered and covering the circle
-                const imgAspect = playerImg.width / playerImg.height;
-                let dw, dh;
-                if (imgAspect > 1) {
-                    dh = size;
-                    dw = size * imgAspect;
-                } else {
-                    dw = size;
-                    dh = size / imgAspect;
-                }
-                ctx.drawImage(playerImg, px - dw / 2, py - dh / 2, dw, dh);
-                ctx.restore();
-
-                // Circle border
-                ctx.strokeStyle = '#ff8c00';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(px, py, size / 2, 0, Math.PI * 2);
-                ctx.stroke();
-
-            } else {
-                // Fallback: draw cartoon head
-                // Face
-                ctx.fillStyle = '#e8b88a';
-                ctx.beginPath();
-                ctx.arc(px, py, size / 2, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Hair
-                ctx.fillStyle = '#2c1810';
-                ctx.beginPath();
-                ctx.ellipse(px, py - size / 2 + 8, size / 2 + 2, 18, 0, Math.PI, Math.PI * 2);
-                ctx.fill();
-
-                // Eyes
-                ctx.fillStyle = '#fff';
-                ctx.beginPath();
-                ctx.ellipse(px - 13, py - 8, 8, 6, 0, 0, Math.PI * 2);
-                ctx.ellipse(px + 13, py - 8, 8, 6, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#3a2510';
-                ctx.beginPath();
-                ctx.arc(px - 13, py - 8, 3.5, 0, Math.PI * 2);
-                ctx.arc(px + 13, py - 8, 3.5, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Beard
-                ctx.fillStyle = '#2c1810';
-                ctx.beginPath();
-                ctx.ellipse(px, py + 20, 22, 18, 0, 0, Math.PI);
-                ctx.fill();
-
-                // Mouth (open, ready to catch)
-                ctx.fillStyle = '#1a0505';
-                ctx.beginPath();
-                ctx.ellipse(px, py + MOUTH_Y_OFFSET, 10, 7, 0, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Border
-                ctx.strokeStyle = '#ff8c00';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(px, py, size / 2, 0, Math.PI * 2);
-                ctx.stroke();
-            }
-
-            // Mouth indicator (target zone) - subtle glow
-            ctx.save();
-            ctx.globalAlpha = 0.15 + Math.sin(frameCount * 0.08) * 0.08;
-            ctx.strokeStyle = '#ff8c00';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(px, py + MOUTH_Y_OFFSET, 14, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-        }
-
-        function drawSmoke() {
-            for (const p of smokeParticles) {
-                ctx.save();
-                ctx.globalAlpha = p.alpha;
-                ctx.fillStyle = p.color;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            }
-        }
-
-        function drawFloatingTexts() {
-            for (const ft of floatingTexts) {
-                ctx.save();
-                ctx.globalAlpha = ft.alpha;
-                ctx.fillStyle = ft.color;
-                ctx.font = `bold ${ft.size}px 'Segoe UI', sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.fillText(ft.text, ft.x, ft.y);
-                ctx.restore();
-            }
-        }
-
-        function drawLives() {
-            const startX = W - 15;
-            const y = 38;
-            for (let i = 0; i < MAX_MISSED; i++) {
-                const x = startX - i * 18;
-                if (i < lives) {
-                    // Full heart
-                    ctx.fillStyle = '#e74c3c';
-                } else {
-                    // Empty heart
-                    ctx.fillStyle = '#333';
-                }
-                ctx.font = '16px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('\u2764', x, y);
-            }
-        }
-
-        // ---- Particle effects ----
-
-        function spawnSmoke(x, y, amount) {
-            for (let i = 0; i < amount; i++) {
-                smokeParticles.push({
-                    x: x + (Math.random() - 0.5) * 20,
-                    y: y - 10 + Math.random() * 10,
-                    vx: (Math.random() - 0.5) * 1.5,
-                    vy: -1 - Math.random() * 2,
-                    r: 4 + Math.random() * 8,
-                    alpha: 0.6 + Math.random() * 0.3,
-                    color: Math.random() > 0.3 ? '#ccc' : '#999',
-                    decay: 0.006 + Math.random() * 0.008,
-                    grow: 0.15 + Math.random() * 0.2
-                });
-            }
-        }
-
-        function spawnFloatingText(x, y, text, color) {
-            floatingTexts.push({
-                x, y, text, color,
-                alpha: 1,
-                vy: -1.5,
-                size: 24
-            });
-        }
-
-        function updateSmoke() {
-            for (const p of smokeParticles) {
-                p.x += p.vx + Math.sin(frameCount * 0.03 + p.x * 0.1) * 0.3;
-                p.y += p.vy;
-                p.r += p.grow;
-                p.alpha -= p.decay;
-                p.vy *= 0.99;
-            }
-            smokeParticles = smokeParticles.filter(p => p.alpha > 0.01);
-        }
-
-        function updateFloatingTexts() {
-            for (const ft of floatingTexts) {
-                ft.y += ft.vy;
-                ft.alpha -= 0.015;
-                ft.size += 0.2;
-            }
-            floatingTexts = floatingTexts.filter(ft => ft.alpha > 0);
-        }
-
-        // ---- Game logic ----
-
-        function resetGame() {
-            score = 0;
-            combo = 0;
-            maxCombo = 0;
-            missedCount = 0;
-            lives = MAX_MISSED;
-            frameCount = 0;
-            fallSpeed = 2.5;
-            spawnInterval = 55;
-            cigarettes = [];
-            smokeParticles = [];
-            floatingTexts = [];
-            player.x = W / 2;
-            player.y = H - 70;
-        }
-
-        function spawnCigarette() {
-            const x = 30 + Math.random() * (W - 60);
-            const len = 32 + Math.random() * 12;
-            const angle = (Math.random() - 0.5) * 0.4;
-            const speed = fallSpeed + Math.random() * 1.5;
-            const wobble = 0.3 + Math.random() * 0.5;
-            const phase = Math.random() * Math.PI * 2;
-
-            cigarettes.push({ x, y: -len, len, angle, speed, wobble, phase, caught: false });
-        }
-
-        function updatePlayer() {
-            const moveSpeed = 5.5;
-
-            if (keys['ArrowLeft'] || keys['KeyA']) {
-                player.x -= moveSpeed;
-            }
-            if (keys['ArrowRight'] || keys['KeyD']) {
-                player.x += moveSpeed;
-            }
-
-            // Clamp to screen
-            player.x = Math.max(HEAD_SIZE / 2 + 5, Math.min(W - HEAD_SIZE / 2 - 5, player.x));
-        }
-
-        function updateCigarettes() {
-            for (const c of cigarettes) {
-                c.y += c.speed;
-                c.x += Math.sin(frameCount * 0.04 + c.phase) * c.wobble * 0.5;
-            }
-
-            // Check catches and misses
-            const mouthX = player.x;
-            const mouthY = player.y + MOUTH_Y_OFFSET;
-            const catchRadius = 22;
-
-            for (const c of cigarettes) {
-                if (c.caught) continue;
-
-                // Check if cigarette tip is near the mouth
-                const tipY = c.y + c.len / 2;
-                const dist = Math.sqrt((c.x - mouthX) ** 2 + (tipY - mouthY) ** 2);
-
-                if (dist < catchRadius) {
-                    c.caught = true;
-                    combo++;
-                    if (combo > maxCombo) maxCombo = combo;
-                    const points = combo >= 5 ? 3 : combo >= 3 ? 2 : 1;
-                    score += points;
-
-                    // Smoke effect
-                    spawnSmoke(mouthX, mouthY - 20, 12 + combo * 3);
-
-                    // Floating text
-                    const txt = combo >= 5 ? `+${points} CHAIN!` : combo >= 3 ? `+${points} Combo!` : `+${points}`;
-                    const color = combo >= 5 ? '#ff4500' : combo >= 3 ? '#ffa500' : '#f5c518';
-                    spawnFloatingText(mouthX, mouthY - 40, txt, color);
-                }
-            }
-
-            // Remove caught and off-screen cigarettes
-            const before = cigarettes.filter(c => !c.caught && c.y > H + 20).length;
-            if (before > 0) {
-                missedCount += before;
-                lives = MAX_MISSED - missedCount;
-                combo = 0; // reset combo on miss
-
-                if (missedCount >= MAX_MISSED) {
-                    gameOver();
-                    return;
-                }
-            }
-
-            cigarettes = cigarettes.filter(c => {
-                if (c.caught) return false;
-                if (c.y > H + 20) return false;
-                return true;
-            });
-        }
-
-        function updateDifficulty() {
-            fallSpeed = 2.5 + score / 80;
-            spawnInterval = Math.max(18, 50 - Math.floor(score / 15));
-        }
-
-        function gameOver() {
-            state = 'gameover';
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('clopeCatcherHigh', String(highScore));
-            }
-            showOverlay();
-        }
-
-        function showOverlay() {
-            overlay.classList.remove('hidden');
-            hud.classList.add('hidden');
-            controlsInfo.classList.add('hidden');
-
-            if (state === 'gameover') {
-                const newRecord = score >= highScore && score > 0 ? '<span style="color:#ff4500;">NOUVEAU RECORD !</span><br>' : '';
-                overlay.innerHTML = `
-                    <h1>Game Over</h1>
-                    <div class="score-display">Clopes fumees: ${score}</div>
-                    ${newRecord}
-                    <h2>Max combo: ${maxCombo}x</h2>
-                    <h2 style="color:#aaa;">Record: ${highScore}</h2>
-                    <p></p>
-                    <button class="btn" id="startBtn">Rejouer</button>
-                `;
-                overlay.querySelector('#startBtn').addEventListener('click', startGame);
-            }
-        }
-
-        function startGame() {
-            resetGame();
-            state = 'playing';
-            overlay.classList.add('hidden');
-            hud.classList.remove('hidden');
-            controlsInfo.classList.remove('hidden');
-        }
-
-        // ---- Main loop ----
-
-        function gameLoop() {
-            if (state === 'playing') {
-                frameCount++;
-
-                updatePlayer();
-                updateCigarettes();
-                updateSmoke();
-                updateFloatingTexts();
-                updateDifficulty();
-
-                // Spawn cigarettes
-                if (frameCount % spawnInterval === 0) {
-                    spawnCigarette();
-                }
-
-                // Update HUD
-                scoreHud.textContent = `Clopes: ${score}`;
-                comboHud.textContent = combo >= 2 ? `Combo: ${combo}x` : '';
-            } else {
-                updateSmoke();
-                updateFloatingTexts();
-            }
-
-            // Draw
-            drawBackground();
-
-            // Draw cigarettes
-            for (const c of cigarettes) {
-                drawCigarette(c);
-            }
-
-            // Draw smoke behind player
-            drawSmoke();
-
-            if (state === 'playing' || state === 'gameover') {
-                drawPlayer();
-                drawFloatingTexts();
-                drawLives();
-            }
-
-            requestAnimationFrame(gameLoop);
-        }
-
-        // ---- Input handlers ----
-
-        document.addEventListener('keydown', e => {
-            keys[e.code] = true;
-            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(e.code)) {
-                e.preventDefault();
-            }
-        });
-
-        document.addEventListener('keyup', e => {
-            keys[e.code] = false;
-        });
-
-        // Touch controls
-        canvas.addEventListener('touchstart', e => {
-            e.preventDefault();
-            const rect = canvas.getBoundingClientRect();
-            const relX = e.touches[0].clientX - rect.left;
-            if (relX < rect.width / 2) {
-                keys['ArrowLeft'] = true;
-            } else {
-                keys['ArrowRight'] = true;
-            }
-        });
-
-        canvas.addEventListener('touchmove', e => {
-            e.preventDefault();
-        });
-
-        canvas.addEventListener('touchend', e => {
-            e.preventDefault();
-            keys['ArrowLeft'] = false;
-            keys['ArrowRight'] = false;
-        });
-
-        // Start button
-        startBtn.addEventListener('click', startGame);
-
-        // Init
-        drawBackground();
-        gameLoop();
-    })();
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
