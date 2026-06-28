@@ -3,120 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice Chat AI</title>
+    <title>StickerWorld — Un sticker pour chaque ville du monde</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="app">
-        <!-- Ecran de configuration -->
-        <div id="setup-screen" class="screen active">
-            <div class="setup-container">
-                <div class="logo">
-                    <div class="logo-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                            <line x1="12" y1="19" x2="12" y2="23"/>
-                            <line x1="8" y1="23" x2="16" y2="23"/>
-                        </svg>
-                    </div>
-                    <h1>Voice Chat AI</h1>
-                    <p class="subtitle">Discute avec une IA par la voix</p>
-                </div>
+    <header class="header">
+        <div class="header-inner">
+            <a href="#" class="brand" id="brand-home">
+                <span class="brand-mark">🌍</span>
+                <span class="brand-name">Sticker<strong>World</strong></span>
+            </a>
 
-                <div class="setup-form">
-                    <div class="input-group">
-                        <label for="openai-key">Cl&eacute; API OpenAI</label>
-                        <input type="password" id="openai-key" placeholder="sk-...">
-                        <span class="input-hint">Compatible avec les cl&eacute;s gratuites</span>
-                    </div>
-
-                    <div class="input-group">
-                        <label for="elevenlabs-key">Cl&eacute; API ElevenLabs</label>
-                        <input type="password" id="elevenlabs-key" placeholder="Votre cl&eacute; ElevenLabs">
-                    </div>
-
-                    <div class="input-group">
-                        <label for="voice-select">Voix ElevenLabs</label>
-                        <select id="voice-select" disabled>
-                            <option value="">-- Entrez votre cl&eacute; ElevenLabs --</option>
-                        </select>
-                        <button id="load-voices-btn" class="btn-secondary" disabled>Charger les voix</button>
-                    </div>
-
-                    <div class="input-group">
-                        <label for="system-prompt">Personnalit&eacute; de l'IA</label>
-                        <textarea id="system-prompt" rows="3" placeholder="Ex: Tu es un assistant amical et dr&ocirc;le qui parle fran&ccedil;ais.">Tu es un assistant vocal amical et concis. Tu r&eacute;ponds en fran&ccedil;ais avec des phrases courtes et naturelles, comme dans une vraie conversation.</textarea>
-                    </div>
-
-                    <button id="start-btn" class="btn-primary" disabled>
-                        <span>Commencer le chat</span>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                            <polygon points="5 3 19 12 5 21 5 3"/>
-                        </svg>
-                    </button>
-                </div>
+            <div class="search-wrap">
+                <input type="search" id="search" placeholder="Rechercher une ville… (Paris, Tokyo, Dakar…)" autocomplete="off">
             </div>
+
+            <button class="cart-btn" id="cart-btn" aria-label="Voir le panier">
+                🛒
+                <span class="cart-count" id="cart-count">0</span>
+            </button>
         </div>
 
-        <!-- Ecran de chat -->
-        <div id="chat-screen" class="screen">
-            <header class="chat-header">
-                <button id="back-btn" class="btn-icon" title="Retour">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                        <polyline points="15 18 9 12 15 6"/>
-                    </svg>
-                </button>
-                <div class="header-info">
-                    <h2>Voice Chat AI</h2>
-                    <span id="status-text" class="status">En ligne</span>
-                </div>
-                <div id="ai-avatar" class="avatar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24">
-                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                    </svg>
-                </div>
-            </header>
+        <nav class="filters" id="filters"></nav>
+    </header>
 
-            <div id="chat-messages" class="chat-messages">
-                <div class="welcome-msg">
-                    <p>Appuie sur le micro pour parler, ou tape un message.</p>
-                </div>
+    <main class="main">
+        <section class="hero">
+            <h1>Un sticker pour <span>chaque ville</span> du monde.</h1>
+            <p>Collectionne ta ville, tes voyages et tes rêves. Stickers vinyle résistants à l'eau, livrés partout dans le monde.</p>
+            <div class="hero-stats">
+                <div><strong id="stat-count">0</strong><span>villes disponibles</span></div>
+                <div><strong>4,90 €</strong><span>par sticker</span></div>
+                <div><strong>🌐</strong><span>livraison mondiale</span></div>
             </div>
+        </section>
 
-            <div id="visualizer-container" class="visualizer-container hidden">
-                <canvas id="visualizer"></canvas>
-                <span id="recording-time">0:00</span>
-            </div>
-
-            <footer class="chat-footer">
-                <div class="input-bar">
-                    <input type="text" id="text-input" placeholder="Tape un message..." autocomplete="off">
-                    <button id="send-btn" class="btn-icon" title="Envoyer" disabled>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                            <line x1="22" y1="2" x2="11" y2="13"/>
-                            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                        </svg>
-                    </button>
-                </div>
-                <button id="mic-btn" class="mic-btn" title="Maintenir pour parler">
-                    <div class="mic-btn-inner">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28">
-                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                            <line x1="12" y1="19" x2="12" y2="23"/>
-                            <line x1="8" y1="23" x2="16" y2="23"/>
-                        </svg>
-                    </div>
-                    <div class="mic-pulse"></div>
-                </button>
-            </footer>
+        <div class="results-bar">
+            <p id="results-info">Toutes les villes</p>
         </div>
-    </div>
 
+        <section class="grid" id="grid"></section>
+
+        <p class="empty" id="empty" hidden>Aucune ville ne correspond à ta recherche. 😢</p>
+    </main>
+
+    <!-- Panier -->
+    <div class="cart-overlay" id="cart-overlay" hidden></div>
+    <aside class="cart-panel" id="cart-panel" hidden aria-label="Panier">
+        <div class="cart-head">
+            <h2>Ton panier</h2>
+            <button class="cart-close" id="cart-close" aria-label="Fermer">✕</button>
+        </div>
+        <div class="cart-items" id="cart-items"></div>
+        <div class="cart-foot">
+            <div class="cart-total">
+                <span>Total</span>
+                <strong id="cart-total">0,00 €</strong>
+            </div>
+            <button class="btn-checkout" id="checkout-btn">Passer la commande</button>
+            <p class="cart-note">Paiement sécurisé · Démo — aucune transaction réelle.</p>
+        </div>
+    </aside>
+
+    <footer class="footer">
+        <p>StickerWorld — Démo de boutique de stickers. Fait avec ❤️ pour les voyageurs.</p>
+    </footer>
+
+    <script src="cities.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

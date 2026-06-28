@@ -1,556 +1,290 @@
 // ============================================================
-// Voice Chat AI - OpenAI + ElevenLabs
+// StickerWorld — Logique de la boutique
 // ============================================================
 
 const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
 
-// --- State ---
 const state = {
-    openaiKey: '',
-    elevenlabsKey: '',
-    voiceId: '',
-    systemPrompt: '',
-    messages: [],        // OpenAI conversation history
-    isRecording: false,
-    isProcessing: false,
-    mediaRecorder: null,
-    audioChunks: [],
-    recordingStart: 0,
-    recordingTimer: null,
-    audioContext: null,
-    analyser: null,
-    currentAudio: null,
+    filter: "all",
+    query: "",
+    cart: loadCart(),
 };
 
-// --- DOM Elements ---
-const els = {
-    setupScreen:    $('#setup-screen'),
-    chatScreen:     $('#chat-screen'),
-    openaiKey:      $('#openai-key'),
-    elevenlabsKey:  $('#elevenlabs-key'),
-    voiceSelect:    $('#voice-select'),
-    loadVoicesBtn:  $('#load-voices-btn'),
-    systemPrompt:   $('#system-prompt'),
-    startBtn:       $('#start-btn'),
-    backBtn:        $('#back-btn'),
-    chatMessages:   $('#chat-messages'),
-    textInput:      $('#text-input'),
-    sendBtn:        $('#send-btn'),
-    micBtn:         $('#mic-btn'),
-    statusText:     $('#status-text'),
-    aiAvatar:       $('#ai-avatar'),
-    visualizer:     $('#visualizer'),
-    vizContainer:   $('#visualizer-container'),
-    recordingTime:  $('#recording-time'),
-};
+// --- Palettes de couleurs pour générer un sticker unique par ville ---
+const PALETTES = [
+    ["#FF6B6B", "#FFD93D"], ["#4ECDC4", "#556270"], ["#6C5CE7", "#A29BFE"],
+    ["#00B894", "#55EFC4"], ["#FD79A8", "#FDCB6E"], ["#0984E3", "#74B9FF"],
+    ["#E17055", "#FAB1A0"], ["#E84393", "#FD79A8"], ["#00CEC9", "#81ECEC"],
+    ["#FF7675", "#FFEAA7"], ["#A29BFE", "#FFEAA7"], ["#2D3436", "#00B894"],
+    ["#F39C12", "#F1C40F"], ["#16A085", "#1ABC9C"], ["#8E44AD", "#9B59B6"],
+];
 
-// ============================================================
-// Setup Screen
-// ============================================================
-
-function checkSetupReady() {
-    const ready = els.openaiKey.value.trim() && els.elevenlabsKey.value.trim() && els.voiceSelect.value;
-    els.startBtn.disabled = !ready;
-}
-
-function checkElevenLabsKey() {
-    const hasKey = els.elevenlabsKey.value.trim().length > 0;
-    els.loadVoicesBtn.disabled = !hasKey;
-}
-
-els.openaiKey.addEventListener('input', checkSetupReady);
-els.elevenlabsKey.addEventListener('input', () => {
-    checkElevenLabsKey();
-    checkSetupReady();
-});
-els.voiceSelect.addEventListener('change', checkSetupReady);
-
-// Load ElevenLabs voices
-els.loadVoicesBtn.addEventListener('click', async () => {
-    const key = els.elevenlabsKey.value.trim();
-    if (!key) return;
-
-    els.loadVoicesBtn.textContent = 'Chargement...';
-    els.loadVoicesBtn.disabled = true;
-
-    try {
-        const res = await fetch('https://api.elevenlabs.io/v1/voices', {
-            headers: { 'xi-api-key': key }
-        });
-
-        if (!res.ok) throw new Error('Cl\u00e9 invalide ou erreur API');
-
-        const data = await res.json();
-        els.voiceSelect.innerHTML = '<option value="">-- Choisir une voix --</option>';
-        data.voices.forEach((voice) => {
-            const opt = document.createElement('option');
-            opt.value = voice.voice_id;
-            opt.textContent = `${voice.name} (${voice.labels?.accent || voice.labels?.gender || 'custom'})`;
-            els.voiceSelect.appendChild(opt);
-        });
-        els.voiceSelect.disabled = false;
-    } catch (err) {
-        alert('Erreur: ' + err.message);
-    } finally {
-        els.loadVoicesBtn.textContent = 'Charger les voix';
-        els.loadVoicesBtn.disabled = false;
+// Hash déterministe pour qu'une ville garde toujours le même style
+function hashStr(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+        h = (h << 5) - h + str.charCodeAt(i);
+        h |= 0;
     }
-});
-
-// Start chat
-els.startBtn.addEventListener('click', () => {
-    state.openaiKey = els.openaiKey.value.trim();
-    state.elevenlabsKey = els.elevenlabsKey.value.trim();
-    state.voiceId = els.voiceSelect.value;
-    state.systemPrompt = els.systemPrompt.value.trim() || 'Tu es un assistant vocal amical.';
-
-    state.messages = [{ role: 'system', content: state.systemPrompt }];
-
-    els.setupScreen.classList.remove('active');
-    els.chatScreen.classList.add('active');
-});
-
-els.backBtn.addEventListener('click', () => {
-    stopCurrentAudio();
-    els.chatScreen.classList.remove('active');
-    els.setupScreen.classList.add('active');
-});
-
-// ============================================================
-// Chat Messages
-// ============================================================
-
-function addMessage(role, text) {
-    // Remove welcome message
-    const welcome = els.chatMessages.querySelector('.welcome-msg');
-    if (welcome) welcome.remove();
-
-    const div = document.createElement('div');
-    div.className = `message ${role}`;
-
-    const time = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-
-    div.innerHTML = `
-        <div class="bubble">${escapeHtml(text)}</div>
-        <div class="meta">${time}</div>
-    `;
-
-    els.chatMessages.appendChild(div);
-    els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
-    return div;
+    return Math.abs(h);
 }
 
-function addTypingIndicator() {
-    const div = document.createElement('div');
-    div.className = 'message assistant';
-    div.id = 'typing-indicator';
-    div.innerHTML = `
-        <div class="bubble">
-            <div class="typing-indicator">
-                <span></span><span></span><span></span>
+function cityId(city) {
+    return (city.name + "-" + city.country).toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+// Génère un sticker SVG (badge "voyage") propre à la ville
+function stickerSVG(city) {
+    const h = hashStr(city.name + city.country);
+    const [c1, c2] = PALETTES[h % PALETTES.length];
+    const rot = (h % 7) - 3; // légère rotation -3..3
+    const gid = "g-" + cityId(city);
+    const initial = city.name.charAt(0).toUpperCase();
+
+    return `
+    <svg class="sticker-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" style="--rot:${rot}deg">
+        <defs>
+            <linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="${c1}"/>
+                <stop offset="100%" stop-color="${c2}"/>
+            </linearGradient>
+        </defs>
+        <!-- contour blanc type sticker découpé -->
+        <circle cx="100" cy="100" r="92" fill="#fff"/>
+        <circle cx="100" cy="100" r="84" fill="url(#${gid})"/>
+        <circle cx="100" cy="100" r="84" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2" stroke-dasharray="3 6"/>
+        <text x="100" y="118" text-anchor="middle" font-size="78" font-weight="800"
+              fill="rgba(255,255,255,.92)" font-family="Poppins, sans-serif">${initial}</text>
+        <text x="100" y="160" text-anchor="middle" font-size="16" font-weight="700"
+              fill="rgba(255,255,255,.95)" font-family="Poppins, sans-serif"
+              letter-spacing="1">${escapeHtml(city.name.toUpperCase()).slice(0, 14)}</text>
+        <text x="100" y="48" text-anchor="middle" font-size="20"
+              font-family="sans-serif">${city.flag}</text>
+    </svg>`;
+}
+
+function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+}
+
+function fmtPrice(n) {
+    return n.toFixed(2).replace(".", ",") + " €";
+}
+
+// ------------------------------------------------------------
+// Rendu des filtres (continents)
+// ------------------------------------------------------------
+function renderFilters() {
+    const nav = $("#filters");
+    nav.innerHTML = CONTINENTS.map((c) =>
+        `<button class="chip ${c.id === state.filter ? "active" : ""}" data-filter="${c.id}">${c.label}</button>`
+    ).join("");
+    nav.querySelectorAll(".chip").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            state.filter = btn.dataset.filter;
+            renderFilters();
+            renderGrid();
+        });
+    });
+}
+
+// ------------------------------------------------------------
+// Rendu de la grille de stickers
+// ------------------------------------------------------------
+function filteredCities() {
+    const q = state.query.trim().toLowerCase();
+    return CITIES.filter((city) => {
+        const okFilter = state.filter === "all" || city.continent === state.filter;
+        const okQuery = !q ||
+            city.name.toLowerCase().includes(q) ||
+            city.country.toLowerCase().includes(q);
+        return okFilter && okQuery;
+    });
+}
+
+function renderGrid() {
+    const grid = $("#grid");
+    const list = filteredCities();
+
+    $("#empty").hidden = list.length > 0;
+    $("#results-info").textContent =
+        `${list.length} ville${list.length > 1 ? "s" : ""}` +
+        (state.filter !== "all" ? ` · ${CONTINENTS.find(c => c.id === state.filter).label}` : "") +
+        (state.query ? ` · « ${state.query} »` : "");
+
+    grid.innerHTML = list.map((city) => {
+        const id = cityId(city);
+        const inCart = state.cart[id]?.qty || 0;
+        return `
+        <article class="card">
+            <div class="card-sticker">${stickerSVG(city)}</div>
+            <div class="card-body">
+                <h3 class="card-title">${escapeHtml(city.name)}</h3>
+                <p class="card-country">${city.flag} ${escapeHtml(city.country)}</p>
+                <div class="card-foot">
+                    <span class="card-price">${fmtPrice(PRICE)}</span>
+                    <button class="btn-add ${inCart ? "added" : ""}" data-add="${id}">
+                        ${inCart ? `✓ ${inCart} au panier` : "Ajouter"}
+                    </button>
+                </div>
+            </div>
+        </article>`;
+    }).join("");
+
+    grid.querySelectorAll("[data-add]").forEach((btn) => {
+        btn.addEventListener("click", () => addToCart(btn.dataset.add));
+    });
+}
+
+// ------------------------------------------------------------
+// Panier
+// ------------------------------------------------------------
+function loadCart() {
+    try {
+        return JSON.parse(localStorage.getItem("stickerworld_cart")) || {};
+    } catch {
+        return {};
+    }
+}
+
+function saveCart() {
+    localStorage.setItem("stickerworld_cart", JSON.stringify(state.cart));
+}
+
+function findCityById(id) {
+    return CITIES.find((c) => cityId(c) === id);
+}
+
+function addToCart(id) {
+    const city = findCityById(id);
+    if (!city) return;
+    if (!state.cart[id]) state.cart[id] = { name: city.name, country: city.country, flag: city.flag, qty: 0 };
+    state.cart[id].qty += 1;
+    saveCart();
+    renderGrid();
+    renderCart();
+    bumpCartBtn();
+}
+
+function changeQty(id, delta) {
+    if (!state.cart[id]) return;
+    state.cart[id].qty += delta;
+    if (state.cart[id].qty <= 0) delete state.cart[id];
+    saveCart();
+    renderGrid();
+    renderCart();
+}
+
+function cartCount() {
+    return Object.values(state.cart).reduce((sum, it) => sum + it.qty, 0);
+}
+
+function cartTotal() {
+    return cartCount() * PRICE;
+}
+
+function renderCart() {
+    const count = cartCount();
+    $("#cart-count").textContent = count;
+    $("#cart-count").classList.toggle("visible", count > 0);
+    $("#cart-total").textContent = fmtPrice(cartTotal());
+
+    const items = $("#cart-items");
+    const entries = Object.entries(state.cart);
+
+    if (entries.length === 0) {
+        items.innerHTML = `<p class="cart-empty">Ton panier est vide.<br>Ajoute la ville de ton cœur ❤️</p>`;
+        $("#checkout-btn").disabled = true;
+        return;
+    }
+    $("#checkout-btn").disabled = false;
+
+    items.innerHTML = entries.map(([id, it]) => `
+        <div class="cart-item">
+            <div class="cart-item-info">
+                <strong>${it.flag} ${escapeHtml(it.name)}</strong>
+                <span>${escapeHtml(it.country)} · ${fmtPrice(PRICE)}</span>
+            </div>
+            <div class="qty">
+                <button data-dec="${id}" aria-label="Retirer un">−</button>
+                <span>${it.qty}</span>
+                <button data-inc="${id}" aria-label="Ajouter un">+</button>
             </div>
         </div>
-    `;
-    els.chatMessages.appendChild(div);
-    els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
-    return div;
+    `).join("");
+
+    items.querySelectorAll("[data-inc]").forEach((b) =>
+        b.addEventListener("click", () => changeQty(b.dataset.inc, +1)));
+    items.querySelectorAll("[data-dec]").forEach((b) =>
+        b.addEventListener("click", () => changeQty(b.dataset.dec, -1)));
 }
 
-function removeTypingIndicator() {
-    const el = $('#typing-indicator');
-    if (el) el.remove();
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function setStatus(text) {
-    els.statusText.textContent = text;
-}
-
-// ============================================================
-// Send Message (text or transcription)
-// ============================================================
-
-async function sendMessage(text) {
-    if (!text.trim() || state.isProcessing) return;
-
-    state.isProcessing = true;
-    els.textInput.value = '';
-    els.sendBtn.disabled = true;
-    els.micBtn.disabled = true;
-
-    // Add user message
-    addMessage('user', text);
-    state.messages.push({ role: 'user', content: text });
-
-    // Show typing
-    setStatus('R\u00e9fl\u00e9chit...');
-    addTypingIndicator();
-
-    try {
-        // Call OpenAI
-        const aiText = await callOpenAI(text);
-        removeTypingIndicator();
-
-        // Add AI message
-        const msgEl = addMessage('assistant', aiText);
-        state.messages.push({ role: 'assistant', content: aiText });
-
-        // Generate speech
-        setStatus('Parle...');
-        els.aiAvatar.classList.add('speaking');
-        await speakWithElevenLabs(aiText, msgEl);
-    } catch (err) {
-        removeTypingIndicator();
-        addMessage('assistant', `Erreur: ${err.message}`);
-        console.error(err);
-    } finally {
-        state.isProcessing = false;
-        els.micBtn.disabled = false;
-        els.aiAvatar.classList.remove('speaking');
-        setStatus('En ligne');
-        checkSendBtn();
-    }
-}
-
-// ============================================================
-// OpenAI API
-// ============================================================
-
-async function callOpenAI(userText) {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${state.openaiKey}`
-        },
-        body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: state.messages,
-            max_tokens: 500,
-            temperature: 0.8,
-        })
-    });
-
-    if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `OpenAI erreur ${res.status}`);
-    }
-
-    const data = await res.json();
-    return data.choices[0].message.content.trim();
-}
-
-// ============================================================
-// ElevenLabs Text-to-Speech
-// ============================================================
-
-async function speakWithElevenLabs(text, msgEl) {
-    try {
-        const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${state.voiceId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'xi-api-key': state.elevenlabsKey,
-            },
-            body: JSON.stringify({
-                text: text,
-                model_id: 'eleven_multilingual_v2',
-                voice_settings: {
-                    stability: 0.5,
-                    similarity_boost: 0.75,
-                    style: 0.5,
-                    use_speaker_boost: true
-                }
-            })
-        });
-
-        if (!res.ok) {
-            const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.detail?.message || `ElevenLabs erreur ${res.status}`);
-        }
-
-        const audioBlob = await res.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-
-        // Add play button to message
-        const audioIndicator = document.createElement('div');
-        audioIndicator.className = 'audio-indicator';
-        audioIndicator.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-            </svg>
-            <span>\u00c9couter</span>
-        `;
-        audioIndicator.addEventListener('click', () => playAudio(audioUrl));
-        msgEl.querySelector('.bubble').appendChild(audioIndicator);
-
-        // Auto-play
-        await playAudio(audioUrl);
-    } catch (err) {
-        console.error('ElevenLabs TTS error:', err);
-    }
-}
-
-function playAudio(url) {
-    return new Promise((resolve) => {
-        stopCurrentAudio();
-        const audio = new Audio(url);
-        state.currentAudio = audio;
-        els.aiAvatar.classList.add('speaking');
-
-        audio.addEventListener('ended', () => {
-            els.aiAvatar.classList.remove('speaking');
-            state.currentAudio = null;
-            resolve();
-        });
-        audio.addEventListener('error', () => {
-            els.aiAvatar.classList.remove('speaking');
-            state.currentAudio = null;
-            resolve();
-        });
-        audio.play().catch(() => resolve());
+function openCart() {
+    $("#cart-panel").hidden = false;
+    $("#cart-overlay").hidden = false;
+    requestAnimationFrame(() => {
+        $("#cart-panel").classList.add("open");
+        $("#cart-overlay").classList.add("open");
     });
 }
 
-function stopCurrentAudio() {
-    if (state.currentAudio) {
-        state.currentAudio.pause();
-        state.currentAudio.currentTime = 0;
-        state.currentAudio = null;
-        els.aiAvatar.classList.remove('speaking');
-    }
+function closeCart() {
+    $("#cart-panel").classList.remove("open");
+    $("#cart-overlay").classList.remove("open");
+    setTimeout(() => {
+        $("#cart-panel").hidden = true;
+        $("#cart-overlay").hidden = true;
+    }, 250);
 }
 
-// ============================================================
-// Speech-to-Text (OpenAI Whisper)
-// ============================================================
+function bumpCartBtn() {
+    const btn = $("#cart-btn");
+    btn.classList.remove("bump");
+    void btn.offsetWidth;
+    btn.classList.add("bump");
+}
 
-async function transcribeAudio(audioBlob) {
-    setStatus('Transcription...');
-    const formData = new FormData();
-    formData.append('file', audioBlob, 'audio.webm');
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'fr');
+// ------------------------------------------------------------
+// Init
+// ------------------------------------------------------------
+function init() {
+    $("#stat-count").textContent = CITIES.length;
 
-    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${state.openaiKey}`
-        },
-        body: formData
+    renderFilters();
+    renderGrid();
+    renderCart();
+
+    $("#search").addEventListener("input", (e) => {
+        state.query = e.target.value;
+        renderGrid();
     });
 
-    if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `Whisper erreur ${res.status}`);
-    }
+    $("#cart-btn").addEventListener("click", openCart);
+    $("#cart-close").addEventListener("click", closeCart);
+    $("#cart-overlay").addEventListener("click", closeCart);
 
-    const data = await res.json();
-    return data.text;
-}
-
-// ============================================================
-// Microphone Recording
-// ============================================================
-
-async function startRecording() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-        state.audioChunks = [];
-        state.mediaRecorder = new MediaRecorder(stream, {
-            mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-                ? 'audio/webm;codecs=opus'
-                : 'audio/webm'
-        });
-
-        state.mediaRecorder.addEventListener('dataavailable', (e) => {
-            if (e.data.size > 0) state.audioChunks.push(e.data);
-        });
-
-        state.mediaRecorder.addEventListener('stop', async () => {
-            stream.getTracks().forEach(t => t.stop());
-            stopVisualizer();
-
-            if (state.audioChunks.length === 0) return;
-
-            const blob = new Blob(state.audioChunks, { type: 'audio/webm' });
-
-            try {
-                const text = await transcribeAudio(blob);
-                if (text && text.trim()) {
-                    await sendMessage(text);
-                }
-            } catch (err) {
-                addMessage('assistant', `Erreur transcription: ${err.message}`);
-                state.isProcessing = false;
-                els.micBtn.disabled = false;
-                setStatus('En ligne');
-            }
-        });
-
-        state.mediaRecorder.start(250);
-        state.isRecording = true;
-        state.recordingStart = Date.now();
-        els.micBtn.classList.add('recording');
-
-        // Timer
-        updateRecordingTime();
-        state.recordingTimer = setInterval(updateRecordingTime, 1000);
-
-        // Visualizer
-        startVisualizer(stream);
-    } catch (err) {
-        alert('Impossible d\'acc\u00e9der au micro: ' + err.message);
-    }
-}
-
-function stopRecording() {
-    if (state.mediaRecorder && state.isRecording) {
-        state.mediaRecorder.stop();
-        state.isRecording = false;
-        els.micBtn.classList.remove('recording');
-
-        clearInterval(state.recordingTimer);
-        els.recordingTime.textContent = '0:00';
-    }
-}
-
-function updateRecordingTime() {
-    const elapsed = Math.floor((Date.now() - state.recordingStart) / 1000);
-    const mins = Math.floor(elapsed / 60);
-    const secs = elapsed % 60;
-    els.recordingTime.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-}
-
-// ============================================================
-// Audio Visualizer
-// ============================================================
-
-function startVisualizer(stream) {
-    els.vizContainer.classList.remove('hidden');
-
-    state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    state.analyser = state.audioContext.createAnalyser();
-    state.analyser.fftSize = 256;
-
-    const source = state.audioContext.createMediaStreamSource(stream);
-    source.connect(state.analyser);
-
-    const canvas = els.visualizer;
-    const ctx = canvas.getContext('2d');
-    canvas.width = canvas.offsetWidth * 2;
-    canvas.height = canvas.offsetHeight * 2;
-
-    const bufferLength = state.analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-
-    function draw() {
-        if (!state.isRecording) return;
-        requestAnimationFrame(draw);
-
-        state.analyser.getByteFrequencyData(dataArray);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        const barWidth = (canvas.width / bufferLength) * 2.5;
-        let x = 0;
-
-        for (let i = 0; i < bufferLength; i++) {
-            const barHeight = (dataArray[i] / 255) * canvas.height;
-            const hue = 260 + (i / bufferLength) * 40;
-            ctx.fillStyle = `hsla(${hue}, 70%, 60%, 0.8)`;
-            ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-            x += barWidth + 1;
-        }
-    }
-    draw();
-}
-
-function stopVisualizer() {
-    els.vizContainer.classList.add('hidden');
-    if (state.audioContext) {
-        state.audioContext.close().catch(() => {});
-        state.audioContext = null;
-    }
-}
-
-// ============================================================
-// Event Listeners
-// ============================================================
-
-// Text input
-els.textInput.addEventListener('input', checkSendBtn);
-els.textInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    $("#brand-home").addEventListener("click", (e) => {
         e.preventDefault();
-        if (els.textInput.value.trim()) {
-            sendMessage(els.textInput.value.trim());
-        }
-    }
-});
+        state.filter = "all";
+        state.query = "";
+        $("#search").value = "";
+        renderFilters();
+        renderGrid();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    });
 
-els.sendBtn.addEventListener('click', () => {
-    if (els.textInput.value.trim()) {
-        sendMessage(els.textInput.value.trim());
-    }
-});
-
-function checkSendBtn() {
-    els.sendBtn.disabled = !els.textInput.value.trim() || state.isProcessing;
+    $("#checkout-btn").addEventListener("click", () => {
+        const count = cartCount();
+        alert(`Merci ! 🎉\n\n${count} sticker${count > 1 ? "s" : ""} pour un total de ${fmtPrice(cartTotal())}.\n\n(Démo — aucun paiement réel n'est effectué.)`);
+        state.cart = {};
+        saveCart();
+        renderGrid();
+        renderCart();
+        closeCart();
+    });
 }
 
-// Mic button - push to talk
-els.micBtn.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    if (!state.isProcessing && !state.isRecording) {
-        startRecording();
-    }
-});
-
-els.micBtn.addEventListener('mouseup', () => {
-    if (state.isRecording) stopRecording();
-});
-
-els.micBtn.addEventListener('mouseleave', () => {
-    if (state.isRecording) stopRecording();
-});
-
-// Touch support
-els.micBtn.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    if (!state.isProcessing && !state.isRecording) {
-        startRecording();
-    }
-});
-
-els.micBtn.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    if (state.isRecording) stopRecording();
-});
-
-els.micBtn.addEventListener('touchcancel', () => {
-    if (state.isRecording) stopRecording();
-});
-
-// Restore keys from localStorage
-(function restoreKeys() {
-    const savedOpenAI = localStorage.getItem('vc_openai_key');
-    const savedElevenLabs = localStorage.getItem('vc_elevenlabs_key');
-    if (savedOpenAI) els.openaiKey.value = savedOpenAI;
-    if (savedElevenLabs) els.elevenlabsKey.value = savedElevenLabs;
-    checkElevenLabsKey();
-    checkSetupReady();
-})();
-
-// Save keys on change
-els.openaiKey.addEventListener('change', () => {
-    localStorage.setItem('vc_openai_key', els.openaiKey.value.trim());
-});
-els.elevenlabsKey.addEventListener('change', () => {
-    localStorage.setItem('vc_elevenlabs_key', els.elevenlabsKey.value.trim());
-});
+document.addEventListener("DOMContentLoaded", init);
